@@ -14,6 +14,7 @@ public:
 
     void run();
     void yield();
+    static void signalHandler(int signal);
 
 private:
     std::queue<Fiber*> readyQueue;

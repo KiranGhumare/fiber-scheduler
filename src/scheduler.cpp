@@ -1,5 +1,7 @@
 #include <iostream>
 #include "../include/scheduler.h"
+#include <sys/time.h>
+#include <signal.h>
 
 Scheduler * activeScheduler = nullptr;
 const size_t STACK_SIZE = 64*1024;
@@ -29,6 +31,19 @@ void Scheduler::yield() {
 
 void Scheduler::run() {
     activeScheduler = this;
+    struct sigaction sa;
+    sa.sa_handler = Scheduler::signalHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGALRM, &sa, nullptr);
+
+    struct itimerval timer;
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 10000;
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 10000;
+    setitimer(ITIMER_REAL, &timer, nullptr);
+
     while (readyQueue.size()) {
         Fiber* fiber = readyQueue.front();
         readyQueue.pop();
@@ -36,12 +51,22 @@ void Scheduler::run() {
         current->state = FiberState::RUNNING;
         swapcontext(&context, &current->context);
     }
+
+    timer.it_value.tv_usec = 0;
+    timer.it_interval.tv_usec = 0;
+    setitimer(ITIMER_REAL, &timer, nullptr);
 }
 
 void Scheduler::fiberEntry() {
     activeScheduler->current->fn();
     activeScheduler->current->state = FiberState::DONE;
     swapcontext(&activeScheduler->current->context, &activeScheduler->context);
+}
+
+void Scheduler::signalHandler(int signal) {
+    if (activeScheduler && activeScheduler->current) {
+        activeScheduler->yield();
+    }
 }
 
 Scheduler::~Scheduler() {
