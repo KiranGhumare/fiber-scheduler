@@ -10,14 +10,19 @@ public:
     Scheduler();
     ~Scheduler();
 
-    void spawn(std::function<void()> fn);
+    void spawn(std::function<void()> fn, int priority = 0);
 
     void run();
     void yield();
     static void signalHandler(int signal);
 
 private:
-    std::queue<Fiber*> readyQueue;
+    struct FiberComparator {
+        bool operator()(Fiber* a, Fiber* b) {
+            return a->priority < b->priority;
+        }
+    };
+    std::priority_queue<Fiber*, std::vector<Fiber*>, FiberComparator> readyQueue;
     ucontext_t context;
     Fiber* current;
     Fiber* createFiber(std::function<void()> fn);

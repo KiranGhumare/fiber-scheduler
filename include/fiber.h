@@ -13,4 +13,5 @@ struct Fiber {
     char* stack;
     FiberState state;
     std::function<void()> fn;
+    int priority;  // higher number = higher priority
 };

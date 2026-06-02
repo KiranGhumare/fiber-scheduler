@@ -10,11 +10,12 @@ Scheduler::Scheduler() : current(nullptr) {
     activeScheduler = this;
 }
 
-void Scheduler::spawn(std::function<void()> fn) {
+void Scheduler::spawn(std::function<void()> fn, int priority) {
     Fiber* fiber = new Fiber;
     fiber->stack = new char[STACK_SIZE];
     fiber->state = FiberState::READY;
     fiber->fn = fn;
+    fiber->priority = priority;
     getcontext(&fiber->context);
     fiber->context.uc_stack.ss_sp = fiber->stack;
     fiber->context.uc_stack.ss_size = STACK_SIZE;
@@ -45,7 +46,7 @@ void Scheduler::run() {
     setitimer(ITIMER_REAL, &timer, nullptr);
 
     while (readyQueue.size()) {
-        Fiber* fiber = readyQueue.front();
+        Fiber* fiber = readyQueue.top();
         readyQueue.pop();
         current = fiber;
         current->state = FiberState::RUNNING;
@@ -71,7 +72,7 @@ void Scheduler::signalHandler(int signal) {
 
 Scheduler::~Scheduler() {
     while (readyQueue.size()) {
-        Fiber* fiber = readyQueue.front();
+        Fiber* fiber = readyQueue.top();
         readyQueue.pop();
         delete[] fiber->stack;
         delete fiber;
