@@ -7,7 +7,9 @@ int main() {
     Scheduler scheduler;
     scheduler.spawn([]{
         std::cout<<"Fiber 0 starting..."<<std::endl;
-        std::cout<<"Fiber 0 resuming..."<<std::endl;
+        std::cout<<"Fiber 0 hogging CPU..."<<std::endl;
+        for (long i=0;i<1000000000;i++) {}
+        std::cout<<"Fiber 0 done"<<std::endl;
     });
 
     scheduler.spawn([]{
