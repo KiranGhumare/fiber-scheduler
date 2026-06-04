@@ -45,9 +45,10 @@ void Scheduler::run() {
     timer.it_interval.tv_usec = 10000;
     setitimer(ITIMER_REAL, &timer, nullptr);
 
-    while (readyQueue.size()) {
-        Fiber* fiber = readyQueue.top();
-        readyQueue.pop();
+    while (!readyQueue.empty()) {
+        Fiber* fiber = readyQueue.pop();
+        if (fiber == nullptr) continue;
+        // readyQueue.pop();
         current = fiber;
         current->state = FiberState::RUNNING;
         swapcontext(&context, &current->context);
@@ -71,9 +72,8 @@ void Scheduler::signalHandler(int signal) {
 }
 
 Scheduler::~Scheduler() {
-    while (readyQueue.size()) {
-        Fiber* fiber = readyQueue.top();
-        readyQueue.pop();
+    Fiber* fiber;
+    while ((fiber = readyQueue.pop()) != nullptr) {
         delete[] fiber->stack;
         delete fiber;
     }

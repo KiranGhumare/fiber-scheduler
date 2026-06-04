@@ -2,6 +2,7 @@
 #include <queue>
 #include <ucontext.h>
 #include "fiber.h"
+#include "lockfree_queue.h"
 
 const size_t FIBER_STACK_SIZE = 64 * 1024;
 
@@ -22,7 +23,8 @@ private:
             return a->priority < b->priority;
         }
     };
-    std::priority_queue<Fiber*, std::vector<Fiber*>, FiberComparator> readyQueue;
+    //std::priority_queue<Fiber*, std::vector<Fiber*>, FiberComparator> readyQueue;
+    LockFreeQueue readyQueue;
     ucontext_t context;
     Fiber* current;
     Fiber* createFiber(std::function<void()> fn);
