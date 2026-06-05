@@ -2,12 +2,18 @@
 #include "../include/scheduler.h"
 #include <sys/time.h>
 #include <signal.h>
+#include <vector>
+#include <mutex>
 
-Scheduler * activeScheduler = nullptr;
+std::vector<Scheduler*> allSchedulers;
+std::mutex mutexRegistry;
+
+thread_local Scheduler * activeScheduler = nullptr;
 const size_t STACK_SIZE = 64*1024;
 
 Scheduler::Scheduler() : current(nullptr) {
-    activeScheduler = this;
+    std::lock_guard<std::mutex> lock(mutexRegistry);
+    allSchedulers.push_back(this);
 }
 
 void Scheduler::spawn(std::function<void()> fn, int priority) {
@@ -47,7 +53,21 @@ void Scheduler::run() {
 
     while (!readyQueue.empty()) {
         Fiber* fiber = readyQueue.pop();
-        if (fiber == nullptr) continue;
+        if (fiber == nullptr) {
+            bool stolen = false;
+            {
+                std::lock_guard<std::mutex> lock(mutexRegistry);
+                for (Scheduler* other : allSchedulers) {
+                    if (other == this) continue;
+                    fiber = other->readyQueue.pop();
+                    if (fiber != nullptr) {
+                        stolen = true;
+                        break;
+                    }
+                }
+            }
+            if (!stolen) break;
+        };
         // readyQueue.pop();
         current = fiber;
         current->state = FiberState::RUNNING;
@@ -72,6 +92,13 @@ void Scheduler::signalHandler(int signal) {
 }
 
 Scheduler::~Scheduler() {
+    {
+        std::lock_guard<std::mutex> lock(mutexRegistry);
+        allSchedulers.erase(
+            std::remove(allSchedulers.begin(), allSchedulers.end(), this),
+            allSchedulers.end()
+        );
+    }
     Fiber* fiber;
     while ((fiber = readyQueue.pop()) != nullptr) {
         delete[] fiber->stack;
