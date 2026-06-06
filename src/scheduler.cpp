@@ -92,6 +92,13 @@ void Scheduler::signalHandler(int signal) {
 }
 
 Scheduler::~Scheduler() {
+    struct itimerval timer;
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 0;
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = 0;
+    setitimer(ITIMER_REAL, &timer, nullptr);
+    signal(SIGALRM, SIG_DFL);
     {
         std::lock_guard<std::mutex> lock(mutexRegistry);
         allSchedulers.erase(
